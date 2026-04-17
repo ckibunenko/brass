@@ -1,15 +1,19 @@
 const PLAYERS = ["Sveta", "Aca", "Peca", "Bucki"];
 const POINTS_BY_PLACE = [4, 3, 2, 1];
-
 const PLACE_KEYS = ["first", "second", "third", "fourth"];
 
+const STORAGE_KEY_MATCHES = "brass_league_matches_v1";
+const OWNER_PIN = "brass-2026";
+
 const state = {
-  matches: []
+  matches: [],
+  isEntryUnlocked: false
 };
 
 const form = document.getElementById("match-form");
 const dateInput = document.getElementById("match-date");
 const errorNode = document.getElementById("form-error");
+const accessErrorNode = document.getElementById("access-error");
 const historyBody = document.getElementById("match-history-body");
 const allTimeBody = document.getElementById("all-time-body");
 const rankingCards = document.getElementById("ranking-cards");
@@ -18,6 +22,11 @@ const summaryTotalMatches = document.getElementById("summary-total-matches");
 const summaryLeader = document.getElementById("summary-leader");
 const summaryTopPoints = document.getElementById("summary-top-points");
 const summaryBestAverage = document.getElementById("summary-best-average");
+
+const entryLockStatus = document.getElementById("entry-lock-status");
+const editorPinInput = document.getElementById("editor-pin");
+const unlockEntryButton = document.getElementById("unlock-entry");
+const lockEntryButton = document.getElementById("lock-entry");
 
 const selectByPlace = {
   first: document.getElementById("first-place"),
@@ -29,9 +38,12 @@ const selectByPlace = {
 initialize();
 
 function initialize() {
+  state.matches = loadMatchesFromStorage();
   setDefaultDate();
   populatePlayerOptions();
+  wireAccessControls();
   wireForm();
+  applyEntryLock();
   renderAll();
 }
 
@@ -71,10 +83,70 @@ function populatePlayerOptions() {
   syncPlayerAvailability();
 }
 
+function wireAccessControls() {
+  unlockEntryButton.addEventListener("click", () => {
+    accessErrorNode.textContent = "";
+    errorNode.textContent = "";
+
+    const enteredPin = editorPinInput.value.trim();
+    if (!enteredPin) {
+      accessErrorNode.textContent = "Enter owner PIN to unlock match entry.";
+      return;
+    }
+
+    if (enteredPin !== OWNER_PIN) {
+      accessErrorNode.textContent = "Wrong PIN. Entry remains locked.";
+      return;
+    }
+
+    state.isEntryUnlocked = true;
+    editorPinInput.value = "";
+    applyEntryLock();
+  });
+
+  lockEntryButton.addEventListener("click", () => {
+    state.isEntryUnlocked = false;
+    editorPinInput.value = "";
+    accessErrorNode.textContent = "";
+    applyEntryLock();
+  });
+
+  editorPinInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      unlockEntryButton.click();
+    }
+  });
+}
+
+function applyEntryLock() {
+  const isUnlocked = state.isEntryUnlocked;
+  const submitButton = form.querySelector('button[type="submit"]');
+  const controls = [
+    dateInput,
+    selectByPlace.first,
+    selectByPlace.second,
+    selectByPlace.third,
+    selectByPlace.fourth,
+    submitButton
+  ];
+
+  controls.forEach((control) => {
+    control.disabled = !isUnlocked;
+  });
+
+  entryLockStatus.textContent = isUnlocked ? "Unlocked (Owner)" : "Locked";
+}
+
 function wireForm() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     errorNode.textContent = "";
+
+    if (!state.isEntryUnlocked) {
+      errorNode.textContent = "Entry is locked. Unlock with owner PIN first.";
+      return;
+    }
 
     const newMatch = {
       date: dateInput.value,
@@ -91,6 +163,7 @@ function wireForm() {
     }
 
     state.matches.push(newMatch);
+    saveMatchesToStorage(state.matches);
     renderAll();
 
     resetFormAfterSubmit();
@@ -329,4 +402,47 @@ function createEmptyRow(columnSpan, text) {
 
 function placePill(name, place) {
   return `<span class="place-pill place-${place}">${name}</span>`;
+}
+
+function loadMatchesFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_MATCHES);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter(isStoredMatchValid);
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveMatchesToStorage(matches) {
+  try {
+    localStorage.setItem(STORAGE_KEY_MATCHES, JSON.stringify(matches));
+  } catch (error) {
+    errorNode.textContent = "Could not save to browser storage.";
+  }
+}
+
+function isStoredMatchValid(candidate) {
+  if (!candidate || typeof candidate !== "object") {
+    return false;
+  }
+
+  if (typeof candidate.date !== "string" || candidate.date.length === 0) {
+    return false;
+  }
+
+  const picks = [candidate.first, candidate.second, candidate.third, candidate.fourth];
+  if (new Set(picks).size !== PLAYERS.length) {
+    return false;
+  }
+
+  return picks.every((name) => PLAYERS.includes(name));
 }
