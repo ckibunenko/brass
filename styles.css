@@ -82,6 +82,53 @@ body {
   align-items: end;
 }
 
+.entry-lock {
+  margin-bottom: 0.95rem;
+  padding: 0.75rem;
+  border: 1px solid #d1c4ad;
+  border-radius: 12px;
+  background: rgba(255, 252, 246, 0.9);
+}
+
+.entry-lock p {
+  margin: 0;
+}
+
+.entry-lock-controls {
+  margin-top: 0.55rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.entry-lock-controls input,
+.entry-lock-controls button {
+  height: 2.35rem;
+  border-radius: 10px;
+  border: 1px solid #c6b9a2;
+  font: inherit;
+}
+
+.entry-lock-controls input {
+  min-width: 180px;
+  padding: 0 0.6rem;
+  background: #fffdf9;
+}
+
+.entry-lock-controls button {
+  padding: 0 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(180deg, #cf9f40, #a27621);
+  color: #fff;
+  border: 1px solid #8d6720;
+}
+
+.entry-lock-controls .secondary {
+  background: linear-gradient(180deg, #6a7682, #46525f);
+  border-color: #3e4955;
+}
+
 .match-form label {
   display: grid;
   gap: 0.3rem;
