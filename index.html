@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brass League Tracker</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -23,17 +24,16 @@
         <div class="entry-lock">
           <p>
             Entry Access:
-            <strong id="entry-lock-status">Locked</strong>
+            <strong id="entry-lock-status">Checking...</strong>
+          </p>
+          <p class="entry-note">
+            Owner email:
+            <strong id="owner-email"></strong>
           </p>
           <div class="entry-lock-controls">
-            <input
-              type="password"
-              id="editor-pin"
-              placeholder="Owner PIN"
-              autocomplete="off"
-            />
-            <button type="button" id="unlock-entry">Unlock Entry</button>
-            <button type="button" id="lock-entry" class="secondary">Lock</button>
+            <button type="button" id="send-login-link">Send Owner Login Link</button>
+            <button type="button" id="refresh-session" class="secondary">Refresh Session</button>
+            <button type="button" id="sign-out" class="secondary">Sign Out</button>
           </div>
           <p id="access-error" class="form-error" aria-live="polite"></p>
         </div>
