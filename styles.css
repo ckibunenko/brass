@@ -94,6 +94,12 @@ body {
   margin: 0;
 }
 
+.entry-note {
+  margin-top: 0.3rem !important;
+  color: #4c5c6a;
+  font-size: 0.85rem;
+}
+
 .entry-lock-controls {
   margin-top: 0.55rem;
   display: flex;
@@ -101,18 +107,11 @@ body {
   flex-wrap: wrap;
 }
 
-.entry-lock-controls input,
 .entry-lock-controls button {
   height: 2.35rem;
   border-radius: 10px;
   border: 1px solid #c6b9a2;
   font: inherit;
-}
-
-.entry-lock-controls input {
-  min-width: 180px;
-  padding: 0 0.6rem;
-  background: #fffdf9;
 }
 
 .entry-lock-controls button {
@@ -127,6 +126,14 @@ body {
 .entry-lock-controls .secondary {
   background: linear-gradient(180deg, #6a7682, #46525f);
   border-color: #3e4955;
+}
+
+.entry-lock-controls button:disabled,
+.match-form button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
 }
 
 .match-form label {
