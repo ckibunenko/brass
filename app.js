@@ -3,11 +3,18 @@ const POINTS_BY_PLACE = [4, 3, 2, 1];
 const PLACE_KEYS = ["first", "second", "third", "fourth"];
 
 const STORAGE_KEY_MATCHES = "brass_league_matches_v1";
-const OWNER_PIN = "brass-2026";
+const OWNER_EMAIL = "aleksandar.parabucki@gmail.com";
+
+// Replace with your Supabase project values.
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 const state = {
   matches: [],
-  isEntryUnlocked: false
+  isEntryUnlocked: false,
+  isCloudMode: false,
+  session: null,
+  supabase: null
 };
 
 const form = document.getElementById("match-form");
@@ -24,9 +31,10 @@ const summaryTopPoints = document.getElementById("summary-top-points");
 const summaryBestAverage = document.getElementById("summary-best-average");
 
 const entryLockStatus = document.getElementById("entry-lock-status");
-const editorPinInput = document.getElementById("editor-pin");
-const unlockEntryButton = document.getElementById("unlock-entry");
-const lockEntryButton = document.getElementById("lock-entry");
+const ownerEmailNode = document.getElementById("owner-email");
+const sendLoginLinkButton = document.getElementById("send-login-link");
+const refreshSessionButton = document.getElementById("refresh-session");
+const signOutButton = document.getElementById("sign-out");
 
 const selectByPlace = {
   first: document.getElementById("first-place"),
@@ -35,16 +43,103 @@ const selectByPlace = {
   fourth: document.getElementById("fourth-place")
 };
 
-initialize();
+initialize().catch(() => {
+  accessErrorNode.textContent = "Initialization failed. Please refresh the page.";
+});
 
-function initialize() {
-  state.matches = loadMatchesFromStorage();
+async function initialize() {
+  ownerEmailNode.textContent = OWNER_EMAIL;
   setDefaultDate();
   populatePlayerOptions();
   wireAccessControls();
   wireForm();
+
+  if (canUseCloudMode()) {
+    await initializeCloudMode();
+  } else {
+    initializeLocalMode();
+  }
+
   applyEntryLock();
   renderAll();
+}
+
+function canUseCloudMode() {
+  const looksConfigured =
+    SUPABASE_URL.startsWith("https://") &&
+    !SUPABASE_URL.includes("YOUR_PROJECT_REF") &&
+    !SUPABASE_ANON_KEY.includes("YOUR_SUPABASE_ANON_KEY");
+
+  return typeof window.supabase !== "undefined" && looksConfigured;
+}
+
+async function initializeCloudMode() {
+  const { createClient } = window.supabase;
+
+  state.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  });
+
+  state.isCloudMode = true;
+
+  state.supabase.auth.onAuthStateChange((_event, session) => {
+    state.session = session;
+    applyAccessFromAuthSession();
+  });
+
+  const {
+    data: { session }
+  } = await state.supabase.auth.getSession();
+
+  state.session = session;
+  applyAccessFromAuthSession();
+
+  const remoteMatches = await fetchMatchesFromCloud();
+  if (remoteMatches) {
+    state.matches = remoteMatches;
+  }
+}
+
+function initializeLocalMode() {
+  state.isCloudMode = false;
+  state.matches = loadMatchesFromStorage();
+  state.isEntryUnlocked = true;
+
+  sendLoginLinkButton.disabled = true;
+  refreshSessionButton.disabled = true;
+  signOutButton.disabled = true;
+
+  entryLockStatus.textContent = "Local Mode (Not Shared)";
+  accessErrorNode.textContent =
+    "Supabase is not configured yet. Data is local to this browser only.";
+}
+
+function applyAccessFromAuthSession() {
+  if (!state.isCloudMode) {
+    return;
+  }
+
+  const currentEmail = state.session?.user?.email?.toLowerCase() || "";
+  const isOwner = currentEmail === OWNER_EMAIL.toLowerCase();
+
+  state.isEntryUnlocked = isOwner;
+
+  if (isOwner) {
+    entryLockStatus.textContent = "Owner Authenticated";
+    accessErrorNode.textContent = "";
+  } else if (currentEmail) {
+    entryLockStatus.textContent = `View-Only (${currentEmail})`;
+    accessErrorNode.textContent = "Only owner account can enter matches.";
+  } else {
+    entryLockStatus.textContent = "View-Only (Owner login required)";
+    accessErrorNode.textContent = "Send login link to owner email to unlock match entry.";
+  }
+
+  applyEntryLock();
 }
 
 function setDefaultDate() {
@@ -84,43 +179,60 @@ function populatePlayerOptions() {
 }
 
 function wireAccessControls() {
-  unlockEntryButton.addEventListener("click", () => {
+  sendLoginLinkButton.addEventListener("click", async () => {
     accessErrorNode.textContent = "";
-    errorNode.textContent = "";
 
-    const enteredPin = editorPinInput.value.trim();
-    if (!enteredPin) {
-      accessErrorNode.textContent = "Enter owner PIN to unlock match entry.";
+    if (!state.isCloudMode) {
+      accessErrorNode.textContent =
+        "Cloud sync disabled. Set SUPABASE_URL and SUPABASE_ANON_KEY in app.js.";
       return;
     }
 
-    if (enteredPin !== OWNER_PIN) {
-      accessErrorNode.textContent = "Wrong PIN. Entry remains locked.";
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await state.supabase.auth.signInWithOtp({
+      email: OWNER_EMAIL,
+      options: { emailRedirectTo: redirectTo }
+    });
+
+    if (error) {
+      accessErrorNode.textContent = `Could not send login link: ${error.message}`;
       return;
     }
 
-    state.isEntryUnlocked = true;
-    editorPinInput.value = "";
-    applyEntryLock();
+    accessErrorNode.textContent = `Login link sent to ${OWNER_EMAIL}.`;
   });
 
-  lockEntryButton.addEventListener("click", () => {
-    state.isEntryUnlocked = false;
-    editorPinInput.value = "";
-    accessErrorNode.textContent = "";
-    applyEntryLock();
-  });
-
-  editorPinInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      unlockEntryButton.click();
+  refreshSessionButton.addEventListener("click", async () => {
+    if (!state.isCloudMode) {
+      return;
     }
+
+    const {
+      data: { session }
+    } = await state.supabase.auth.getSession();
+
+    state.session = session;
+    applyAccessFromAuthSession();
+
+    const remoteMatches = await fetchMatchesFromCloud();
+    if (remoteMatches) {
+      state.matches = remoteMatches;
+      renderAll();
+    }
+  });
+
+  signOutButton.addEventListener("click", async () => {
+    if (!state.isCloudMode) {
+      return;
+    }
+
+    await state.supabase.auth.signOut();
+    state.session = null;
+    applyAccessFromAuthSession();
   });
 }
 
 function applyEntryLock() {
-  const isUnlocked = state.isEntryUnlocked;
   const submitButton = form.querySelector('button[type="submit"]');
   const controls = [
     dateInput,
@@ -132,19 +244,17 @@ function applyEntryLock() {
   ];
 
   controls.forEach((control) => {
-    control.disabled = !isUnlocked;
+    control.disabled = !state.isEntryUnlocked;
   });
-
-  entryLockStatus.textContent = isUnlocked ? "Unlocked (Owner)" : "Locked";
 }
 
 function wireForm() {
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     errorNode.textContent = "";
 
     if (!state.isEntryUnlocked) {
-      errorNode.textContent = "Entry is locked. Unlock with owner PIN first.";
+      errorNode.textContent = "Entry is locked for this account.";
       return;
     }
 
@@ -162,12 +272,66 @@ function wireForm() {
       return;
     }
 
-    state.matches.push(newMatch);
-    saveMatchesToStorage(state.matches);
-    renderAll();
+    const saveOk = await saveMatch(newMatch);
+    if (!saveOk) {
+      return;
+    }
 
+    renderAll();
     resetFormAfterSubmit();
   });
+}
+
+async function saveMatch(newMatch) {
+  if (state.isCloudMode) {
+    const insertPayload = {
+      match_date: newMatch.date,
+      first_place: newMatch.first,
+      second_place: newMatch.second,
+      third_place: newMatch.third,
+      fourth_place: newMatch.fourth
+    };
+
+    const { error } = await state.supabase.from("matches").insert(insertPayload);
+
+    if (error) {
+      errorNode.textContent = `Could not save match: ${error.message}`;
+      return false;
+    }
+
+    const refreshedMatches = await fetchMatchesFromCloud();
+    if (!refreshedMatches) {
+      return false;
+    }
+
+    state.matches = refreshedMatches;
+    return true;
+  }
+
+  state.matches.push(newMatch);
+  saveMatchesToStorage(state.matches);
+  return true;
+}
+
+async function fetchMatchesFromCloud() {
+  const { data, error } = await state.supabase
+    .from("matches")
+    .select("match_date, first_place, second_place, third_place, fourth_place, created_at")
+    .order("match_date", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    accessErrorNode.textContent = `Could not load cloud data: ${error.message}`;
+    return null;
+  }
+
+  return data.map((row) => ({
+    date: row.match_date,
+    first: row.first_place,
+    second: row.second_place,
+    third: row.third_place,
+    fourth: row.fourth_place
+  }));
 }
 
 function resetFormAfterSubmit() {
@@ -417,7 +581,7 @@ function loadMatchesFromStorage() {
     }
 
     return parsed.filter(isStoredMatchValid);
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -425,7 +589,7 @@ function loadMatchesFromStorage() {
 function saveMatchesToStorage(matches) {
   try {
     localStorage.setItem(STORAGE_KEY_MATCHES, JSON.stringify(matches));
-  } catch (error) {
+  } catch {
     errorNode.textContent = "Could not save to browser storage.";
   }
 }
