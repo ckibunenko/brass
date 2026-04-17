@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brass League Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">Manual Match Tracking</p>
+        <h1>Brass League Tracker</h1>
+        <p>
+          Start from zero. Enter each match manually and the all-time rankings update
+          instantly.
+        </p>
+      </header>
+
+      <section class="panel">
+        <h2>Enter New Match</h2>
+        <form id="match-form" class="match-form" novalidate>
+          <label>
+            Match Date
+            <input type="date" id="match-date" required />
+          </label>
+
+          <label>
+            1st Place
+            <select id="first-place" required></select>
+          </label>
+
+          <label>
+            2nd Place
+            <select id="second-place" required></select>
+          </label>
+
+          <label>
+            3rd Place
+            <select id="third-place" required></select>
+          </label>
+
+          <label>
+            4th Place
+            <select id="fourth-place" required></select>
+          </label>
+
+          <button type="submit">Save Match</button>
+          <p id="form-error" class="form-error" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="summary-grid" aria-label="Summary Stats">
+        <article class="summary-card">
+          <p>Total Matches</p>
+          <strong id="summary-total-matches">0</strong>
+        </article>
+
+        <article class="summary-card">
+          <p>Current Leader</p>
+          <strong id="summary-leader">-</strong>
+        </article>
+
+        <article class="summary-card">
+          <p>Top Points</p>
+          <strong id="summary-top-points">0</strong>
+        </article>
+
+        <article class="summary-card">
+          <p>Best Avg Placement</p>
+          <strong id="summary-best-average">-</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>Ranking Cards</h2>
+        <div id="ranking-cards" class="ranking-cards"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Individual Matches</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>1st Place</th>
+                <th>2nd Place</th>
+                <th>3rd Place</th>
+                <th>4th Place</th>
+              </tr>
+            </thead>
+            <tbody id="match-history-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>All-Time Table</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Total Points</th>
+                <th>Wins</th>
+                <th>2nd</th>
+                <th>3rd</th>
+                <th>4th</th>
+                <th>Games Played</th>
+                <th>Avg Placement</th>
+              </tr>
+            </thead>
+            <tbody id="all-time-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
