@@ -20,6 +20,24 @@
 
       <section class="panel">
         <h2>Enter New Match</h2>
+        <div class="entry-lock">
+          <p>
+            Entry Access:
+            <strong id="entry-lock-status">Locked</strong>
+          </p>
+          <div class="entry-lock-controls">
+            <input
+              type="password"
+              id="editor-pin"
+              placeholder="Owner PIN"
+              autocomplete="off"
+            />
+            <button type="button" id="unlock-entry">Unlock Entry</button>
+            <button type="button" id="lock-entry" class="secondary">Lock</button>
+          </div>
+          <p id="access-error" class="form-error" aria-live="polite"></p>
+        </div>
+
         <form id="match-form" class="match-form" novalidate>
           <label>
             Match Date
