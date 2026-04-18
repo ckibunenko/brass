@@ -1,20 +1,30 @@
 const PLAYERS = ["Sveta", "Aca", "Peca", "Bucki"];
 const POINTS_BY_PLACE = [4, 3, 2, 1];
 const PLACE_KEYS = ["first", "second", "third", "fourth"];
+const AVATAR_DIRECTORY = "assets/avatars";
+const AVATAR_EXTENSIONS = ["png", "jpg", "jpeg", "webp"];
+const PLAYER_AVATAR_SLUGS = {
+  Sveta: "sveta",
+  Aca: "aca",
+  Peca: "peca",
+  Bucki: "bucki"
+};
 
 const STORAGE_KEY_MATCHES = "brass_league_matches_v1";
 const OWNER_EMAIL = "aleksandar.parabucki@gmail.com";
+const CLOUD_REFRESH_INTERVAL_MS = 15000;
 
 // Replace with your Supabase project values.
-const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://yzypfnqurgxifhwzjicd.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6eXBmbnF1cmd4aWZod3pqaWNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTUwNzIsImV4cCI6MjA5MjAzMTA3Mn0._6emz7jM17Xx1CWSRqEwOUieejUIQZvITxDS36D8Smw";
 
 const state = {
   matches: [],
   isEntryUnlocked: false,
   isCloudMode: false,
   session: null,
-  supabase: null
+  supabase: null,
+  cloudRefreshTimer: null
 };
 
 const form = document.getElementById("match-form");
@@ -27,6 +37,8 @@ const rankingCards = document.getElementById("ranking-cards");
 
 const summaryTotalMatches = document.getElementById("summary-total-matches");
 const summaryLeader = document.getElementById("summary-leader");
+const summaryLeaderAvatar = document.getElementById("summary-leader-avatar");
+const summaryLeaderCaption = document.getElementById("summary-leader-caption");
 const summaryTopPoints = document.getElementById("summary-top-points");
 const summaryBestAverage = document.getElementById("summary-best-average");
 
@@ -102,9 +114,12 @@ async function initializeCloudMode() {
   if (remoteMatches) {
     state.matches = remoteMatches;
   }
+
+  startCloudAutoRefresh();
 }
 
 function initializeLocalMode() {
+  stopCloudAutoRefresh();
   state.isCloudMode = false;
   state.matches = loadMatchesFromStorage();
   state.isEntryUnlocked = true;
@@ -142,6 +157,41 @@ function applyAccessFromAuthSession() {
   applyEntryLock();
 }
 
+function startCloudAutoRefresh() {
+  stopCloudAutoRefresh();
+
+  const refreshCloudSnapshot = async () => {
+    const remoteMatches = await fetchMatchesFromCloud();
+    if (!remoteMatches) {
+      return;
+    }
+
+    state.matches = remoteMatches;
+    renderAll();
+  };
+
+  state.cloudRefreshTimer = window.setInterval(() => {
+    if (document.hidden) {
+      return;
+    }
+
+    refreshCloudSnapshot();
+  }, CLOUD_REFRESH_INTERVAL_MS);
+
+  window.addEventListener("focus", refreshCloudSnapshot);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      refreshCloudSnapshot();
+    }
+  });
+}
+
+function stopCloudAutoRefresh() {
+  if (state.cloudRefreshTimer) {
+    window.clearInterval(state.cloudRefreshTimer);
+    state.cloudRefreshTimer = null;
+  }
+}
 function setDefaultDate() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
@@ -501,7 +551,7 @@ function renderSummary(standings, matchCount) {
   summaryTotalMatches.textContent = String(matchCount);
 
   if (matchCount === 0) {
-    summaryLeader.textContent = "-";
+    renderLeaderSpotlight(null);
     summaryTopPoints.textContent = "0";
     summaryBestAverage.textContent = "-";
     return;
@@ -511,9 +561,84 @@ function renderSummary(standings, matchCount) {
   const played = standings.filter((item) => item.gamesPlayed > 0);
   const bestAverage = Math.min(...played.map((item) => item.averagePlacement));
 
-  summaryLeader.textContent = leader.player;
+  renderLeaderSpotlight(leader);
   summaryTopPoints.textContent = String(leader.totalPoints);
   summaryBestAverage.textContent = bestAverage.toFixed(2);
+}
+
+function renderLeaderSpotlight(leader) {
+  summaryLeader.textContent = leader?.player || "-";
+  summaryLeaderCaption.textContent = leader
+    ? `${leader.wins} wins so far`
+    : "Waiting for first match";
+
+  renderLeaderAvatar(leader?.player || "");
+}
+
+function renderLeaderAvatar(playerName) {
+  summaryLeaderAvatar.replaceChildren();
+
+  const fallback = document.createElement("span");
+  fallback.className = "leader-avatar-fallback";
+  fallback.textContent = getAvatarFallbackLabel(playerName);
+
+  summaryLeaderAvatar.appendChild(fallback);
+
+  if (!playerName) {
+    return;
+  }
+
+  const sources = getAvatarSources(playerName);
+  loadFirstAvailableAvatar(sources, `${playerName} avatar`).then((avatarImage) => {
+    if (!avatarImage) {
+      return;
+    }
+
+    summaryLeaderAvatar.replaceChildren(avatarImage);
+  });
+}
+
+function getAvatarSources(playerName) {
+  const slug = PLAYER_AVATAR_SLUGS[playerName] || toAvatarSlug(playerName);
+  return AVATAR_EXTENSIONS.map((extension) => `${AVATAR_DIRECTORY}/${slug}.${extension}`);
+}
+
+function getAvatarFallbackLabel(playerName) {
+  if (!playerName) {
+    return "?";
+  }
+
+  return playerName.slice(0, 2).toUpperCase();
+}
+
+function toAvatarSlug(playerName) {
+  return playerName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function loadFirstAvailableAvatar(sources, altText) {
+  return new Promise((resolve) => {
+    const trySource = (index) => {
+      if (index >= sources.length) {
+        resolve(null);
+        return;
+      }
+
+      const image = new Image();
+      image.alt = altText;
+
+      image.addEventListener("load", () => {
+        resolve(image);
+      });
+
+      image.addEventListener("error", () => {
+        trySource(index + 1);
+      });
+
+      image.src = sources[index];
+    };
+
+    trySource(0);
+  });
 }
 
 function renderRankingCards(standings) {

@@ -11,6 +11,7 @@
   --second-grad: linear-gradient(135deg, #fdfefe 0%, #eef4fb 42%, #cad6e3 70%, #fbfdff 100%);
   --third-grad: linear-gradient(135deg, #f1c9a4 0%, #c3763e 48%, #f8dfc1 100%);
   --fourth-grad: linear-gradient(135deg, #646a70 0%, #4d5359 55%, #3b4045 100%);
+  --world-map-bg: url("assets/avatars/mapa.jpg");
 }
 
 * {
@@ -22,9 +23,15 @@ body {
   font-family: "Sora", "Segoe UI", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 12% 0%, rgba(211, 161, 78, 0.26), transparent 36%),
-    radial-gradient(circle at 88% 14%, rgba(118, 136, 154, 0.2), transparent 33%),
-    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    linear-gradient(180deg, rgba(18, 24, 31, 0.72), rgba(38, 31, 20, 0.58)),
+    radial-gradient(circle at 12% 0%, rgba(211, 161, 78, 0.2), transparent 36%),
+    radial-gradient(circle at 88% 14%, rgba(118, 136, 154, 0.16), transparent 33%),
+    linear-gradient(180deg, rgba(248, 241, 223, 0.22), rgba(236, 229, 211, 0.18)),
+    var(--world-map-bg);
+  background-size: auto, auto, auto, auto, cover;
+  background-position: center, center, center, center, center top;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: scroll, scroll, scroll, scroll, fixed;
 }
 
 .app-shell {
@@ -192,6 +199,16 @@ body {
   padding: 0.95rem;
 }
 
+.summary-card-leader {
+  background:
+    radial-gradient(circle at top right, rgba(207, 159, 64, 0.2), transparent 40%),
+    linear-gradient(135deg, rgba(255, 246, 222, 0.98), rgba(255, 252, 245, 0.96));
+  border-color: #ccb07b;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 24px rgba(128, 95, 33, 0.12);
+}
+
 .summary-card p {
   margin: 0;
   color: #5d6974;
@@ -202,6 +219,74 @@ body {
   display: block;
   font-size: 1.48rem;
   margin-top: 0.22rem;
+}
+
+.leader-spotlight {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.55rem;
+}
+
+.leader-avatar {
+  width: 58px;
+  min-width: 58px;
+  height: 76px;
+  border-radius: 14px;
+  border: 1px solid #bca06d;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(86, 56, 14, 0.22), rgba(241, 221, 184, 0.84)),
+    #efe2c5;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 6px 14px rgba(91, 60, 17, 0.12);
+}
+
+.leader-avatar img,
+.leader-avatar-fallback {
+  width: 100%;
+  height: 100%;
+}
+
+.leader-avatar img {
+  display: block;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.leader-avatar-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #67430b;
+  text-transform: uppercase;
+}
+
+.leader-copy strong {
+  margin-top: 0;
+  font-size: clamp(1.1rem, 2vw, 1.55rem);
+  line-height: 1.05;
+}
+
+.leader-copy span {
+  display: block;
+  margin-top: 0.24rem;
+  color: #6c5934;
+  font-size: 0.86rem;
+}
+
+.leader-copy {
+  min-width: 0;
+}
+
+.leader-copy strong,
+.leader-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ranking-cards {
@@ -361,6 +446,12 @@ th {
   .app-shell {
     width: min(1140px, 95vw);
     padding-top: 1.25rem;
+  }
+
+  .leader-avatar {
+    width: 52px;
+    min-width: 52px;
+    height: 68px;
   }
 
   .panel,
