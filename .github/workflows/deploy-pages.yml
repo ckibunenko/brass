@@ -20,9 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create runtime config
+      - name: Prepare deploy bundle
         run: |
-          cat > config.js <<EOF
+          mkdir -p dist
+          cp index.html app.js styles.css dist/
+          cp -R assets dist/assets
+          cat > dist/config.js <<EOF
           window.BRASS_CONFIG = {
             ownerEmail: "${{ secrets.BRASS_OWNER_EMAIL }}",
             supabaseUrl: "${{ secrets.BRASS_SUPABASE_URL }}",
@@ -34,5 +37,5 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
+          publish_dir: ./dist
           force_orphan: true
