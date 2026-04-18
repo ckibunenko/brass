@@ -1,5 +1,5 @@
 -- Run this in Supabase SQL Editor.
--- Owner write account: aleksandar.parabucki@gmail.com
+-- Replace OWNER_EMAIL_HERE with your real owner email before running.
 
 create extension if not exists pgcrypto;
 
@@ -33,17 +33,17 @@ drop policy if exists matches_owner_insert on public.matches;
 create policy matches_owner_insert
 on public.matches
 for insert
-with check ((auth.jwt() ->> 'email') = 'aleksandar.parabucki@gmail.com');
+with check ((auth.jwt() ->> 'email') = 'OWNER_EMAIL_HERE');
 
 drop policy if exists matches_owner_update on public.matches;
 create policy matches_owner_update
 on public.matches
 for update
-using ((auth.jwt() ->> 'email') = 'aleksandar.parabucki@gmail.com')
-with check ((auth.jwt() ->> 'email') = 'aleksandar.parabucki@gmail.com');
+using ((auth.jwt() ->> 'email') = 'OWNER_EMAIL_HERE')
+with check ((auth.jwt() ->> 'email') = 'OWNER_EMAIL_HERE');
 
 drop policy if exists matches_owner_delete on public.matches;
 create policy matches_owner_delete
 on public.matches
 for delete
-using ((auth.jwt() ->> 'email') = 'aleksandar.parabucki@gmail.com');
+using ((auth.jwt() ->> 'email') = 'OWNER_EMAIL_HERE');

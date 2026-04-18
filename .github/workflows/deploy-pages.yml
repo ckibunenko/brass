@@ -20,6 +20,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create runtime config
+        run: |
+          cat > config.js <<EOF
+          window.BRASS_CONFIG = {
+            ownerEmail: "${{ secrets.BRASS_OWNER_EMAIL }}",
+            supabaseUrl: "${{ secrets.BRASS_SUPABASE_URL }}",
+            supabasePublicKey: "${{ secrets.BRASS_SUPABASE_PUBLIC_KEY }}"
+          };
+          EOF
+
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:

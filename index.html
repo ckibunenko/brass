@@ -6,6 +6,7 @@
     <title>Brass League Tracker</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -26,12 +27,9 @@
             Entry Access:
             <strong id="entry-lock-status">Checking...</strong>
           </p>
-          <p class="entry-note">
-            Owner email:
-            <strong id="owner-email"></strong>
-          </p>
+          <p class="entry-note">Shared board is view-only for everyone except the owner.</p>
           <div class="entry-lock-controls">
-            <button type="button" id="send-login-link">Send Owner Login Link</button>
+            <button type="button" id="send-login-link">Owner Sign In</button>
             <button type="button" id="refresh-session" class="secondary">Refresh Session</button>
             <button type="button" id="sign-out" class="secondary">Sign Out</button>
           </div>

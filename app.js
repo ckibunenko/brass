@@ -10,13 +10,13 @@ const PLAYER_AVATAR_SLUGS = {
   Bucki: "bucki"
 };
 
+const APP_CONFIG = window.BRASS_CONFIG || {};
 const STORAGE_KEY_MATCHES = "brass_league_matches_v1";
-const OWNER_EMAIL = "aleksandar.parabucki@gmail.com";
 const CLOUD_REFRESH_INTERVAL_MS = 15000;
-
-// Replace with your Supabase project values.
-const SUPABASE_URL = "https://yzypfnqurgxifhwzjicd.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6eXBmbnF1cmd4aWZod3pqaWNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTUwNzIsImV4cCI6MjA5MjAzMTA3Mn0._6emz7jM17Xx1CWSRqEwOUieejUIQZvITxDS36D8Smw";
+const LOGIN_LINK_COOLDOWN_MS = 60000;
+const OWNER_EMAIL = normalizeConfigValue(APP_CONFIG.ownerEmail);
+const SUPABASE_URL = normalizeConfigValue(APP_CONFIG.supabaseUrl);
+const SUPABASE_PUBLIC_KEY = normalizeConfigValue(APP_CONFIG.supabasePublicKey);
 
 const state = {
   matches: [],
@@ -24,7 +24,8 @@ const state = {
   isCloudMode: false,
   session: null,
   supabase: null,
-  cloudRefreshTimer: null
+  cloudRefreshTimer: null,
+  lastLoginLinkSentAt: 0
 };
 
 const form = document.getElementById("match-form");
@@ -43,7 +44,6 @@ const summaryTopPoints = document.getElementById("summary-top-points");
 const summaryBestAverage = document.getElementById("summary-best-average");
 
 const entryLockStatus = document.getElementById("entry-lock-status");
-const ownerEmailNode = document.getElementById("owner-email");
 const sendLoginLinkButton = document.getElementById("send-login-link");
 const refreshSessionButton = document.getElementById("refresh-session");
 const signOutButton = document.getElementById("sign-out");
@@ -60,7 +60,6 @@ initialize().catch(() => {
 });
 
 async function initialize() {
-  ownerEmailNode.textContent = OWNER_EMAIL;
   setDefaultDate();
   populatePlayerOptions();
   wireAccessControls();
@@ -77,18 +76,13 @@ async function initialize() {
 }
 
 function canUseCloudMode() {
-  const looksConfigured =
-    SUPABASE_URL.startsWith("https://") &&
-    !SUPABASE_URL.includes("YOUR_PROJECT_REF") &&
-    !SUPABASE_ANON_KEY.includes("YOUR_SUPABASE_ANON_KEY");
-
-  return typeof window.supabase !== "undefined" && looksConfigured;
+  return typeof window.supabase !== "undefined" && Boolean(SUPABASE_URL && SUPABASE_PUBLIC_KEY);
 }
 
 async function initializeCloudMode() {
   const { createClient } = window.supabase;
 
-  state.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  state.supabase = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -139,7 +133,7 @@ function applyAccessFromAuthSession() {
   }
 
   const currentEmail = state.session?.user?.email?.toLowerCase() || "";
-  const isOwner = currentEmail === OWNER_EMAIL.toLowerCase();
+  const isOwner = Boolean(OWNER_EMAIL) && currentEmail === OWNER_EMAIL.toLowerCase();
 
   state.isEntryUnlocked = isOwner;
 
@@ -147,11 +141,11 @@ function applyAccessFromAuthSession() {
     entryLockStatus.textContent = "Owner Authenticated";
     accessErrorNode.textContent = "";
   } else if (currentEmail) {
-    entryLockStatus.textContent = `View-Only (${currentEmail})`;
+    entryLockStatus.textContent = "View-Only";
     accessErrorNode.textContent = "Only owner account can enter matches.";
   } else {
-    entryLockStatus.textContent = "View-Only (Owner login required)";
-    accessErrorNode.textContent = "Send login link to owner email to unlock match entry.";
+    entryLockStatus.textContent = "View-Only";
+    accessErrorNode.textContent = "Owner sign-in is required to unlock match entry.";
   }
 
   applyEntryLock();
@@ -192,6 +186,11 @@ function stopCloudAutoRefresh() {
     state.cloudRefreshTimer = null;
   }
 }
+
+function normalizeConfigValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function setDefaultDate() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
@@ -233,8 +232,35 @@ function wireAccessControls() {
     accessErrorNode.textContent = "";
 
     if (!state.isCloudMode) {
-      accessErrorNode.textContent =
-        "Cloud sync disabled. Set SUPABASE_URL and SUPABASE_ANON_KEY in app.js.";
+      accessErrorNode.textContent = "Cloud sync disabled. Add runtime config in config.js.";
+      return;
+    }
+
+    if (!OWNER_EMAIL) {
+      accessErrorNode.textContent = "Owner sign-in is not configured yet.";
+      return;
+    }
+
+    const now = Date.now();
+    const timeUntilNextSend = state.lastLoginLinkSentAt + LOGIN_LINK_COOLDOWN_MS - now;
+    if (timeUntilNextSend > 0) {
+      accessErrorNode.textContent = `Try owner sign-in again in ${Math.ceil(
+        timeUntilNextSend / 1000
+      )} seconds.`;
+      return;
+    }
+
+    const requestedEmail = window
+      .prompt("Enter the owner email to receive a login link.", "")
+      ?.trim()
+      .toLowerCase();
+
+    if (!requestedEmail) {
+      return;
+    }
+
+    if (requestedEmail !== OWNER_EMAIL.toLowerCase()) {
+      accessErrorNode.textContent = "That email cannot unlock match entry.";
       return;
     }
 
@@ -249,7 +275,8 @@ function wireAccessControls() {
       return;
     }
 
-    accessErrorNode.textContent = `Login link sent to ${OWNER_EMAIL}.`;
+    state.lastLoginLinkSentAt = now;
+    accessErrorNode.textContent = "If the email matches the owner account, a login link was sent.";
   });
 
   refreshSessionButton.addEventListener("click", async () => {
